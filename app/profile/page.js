@@ -8,6 +8,7 @@ export default function ProfilePage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [profile, setProfile] = useState({
+    name: '',
     bio: '',
     location: '',
     website: ''
@@ -21,8 +22,9 @@ export default function ProfilePage() {
       router.push('/auth/login');
     } else if (status === 'authenticated') {
       fetchProfile();
+      setProfile(prev => ({ ...prev, name: session?.user?.name || '' }));
     }
-  }, [status, router]);
+  }, [status, router, session]);
 
   const fetchProfile = async () => {
     try {
@@ -31,7 +33,7 @@ export default function ProfilePage() {
         throw new Error('Profil bilgileri yüklenemedi');
       }
       const data = await res.json();
-      setProfile(data);
+      setProfile(prev => ({ ...prev, ...data }));
     } catch (error) {
       setError(error.message);
     } finally {
@@ -101,6 +103,22 @@ export default function ProfilePage() {
 
         <div className="bg-white rounded-lg shadow-sm p-6">
           <form onSubmit={handleSubmit} className="space-y-6">
+            <div>
+              <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+                Ad Soyad
+              </label>
+              <input
+                type="text"
+                id="name"
+                name="name"
+                value={profile.name}
+                onChange={handleChange}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                placeholder="Adınız Soyadınız"
+                required
+              />
+            </div>
+
             <div>
               <label htmlFor="bio" className="block text-sm font-medium text-gray-700">
                 Hakkımda

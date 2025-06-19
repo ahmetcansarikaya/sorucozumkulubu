@@ -14,6 +14,10 @@ export async function GET() {
       );
     }
 
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { name: true }
+    });
     const profile = await prisma.profile.findUnique({
       where: { userId: session.user.id },
       select: {
@@ -23,7 +27,12 @@ export async function GET() {
       },
     });
 
-    return NextResponse.json(profile || { bio: '', location: '', website: '' });
+    return NextResponse.json({
+      name: user?.name || '',
+      bio: profile?.bio || '',
+      location: profile?.location || '',
+      website: profile?.website || ''
+    });
   } catch (error) {
     console.error('Error fetching profile:', error);
     return NextResponse.json(
@@ -44,7 +53,14 @@ export async function PUT(request) {
       );
     }
 
-    const { bio, location, website } = await request.json();
+    const { name, bio, location, website } = await request.json();
+
+    if (name) {
+      await prisma.user.update({
+        where: { id: session.user.id },
+        data: { name }
+      });
+    }
 
     const profile = await prisma.profile.upsert({
       where: { userId: session.user.id },
@@ -61,7 +77,12 @@ export async function PUT(request) {
       },
     });
 
-    return NextResponse.json(profile);
+    return NextResponse.json({
+      name,
+      bio,
+      location,
+      website
+    });
   } catch (error) {
     console.error('Error updating profile:', error);
     return NextResponse.json(

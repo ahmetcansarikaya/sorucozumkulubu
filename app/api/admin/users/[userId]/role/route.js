@@ -28,7 +28,7 @@ export async function PATCH(request, { params }) {
     }
 
     // Validate role
-    if (!["USER", "ADMIN"].includes(role)) {
+    if (!["user", "admin"].includes(role)) {
       return NextResponse.json(
         { error: "Invalid role" },
         { status: 400 }

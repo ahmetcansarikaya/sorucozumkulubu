@@ -1,16 +1,23 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState(null);
   const [questions, setQuestions] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [users, setUsers] = useState([]);
+  const [userLoading, setUserLoading] = useState(true);
+  const [userError, setUserError] = useState(null);
+  const [roleUpdating, setRoleUpdating] = useState(null); // userId
+  const { data: session } = useSession();
 
   useEffect(() => {
     fetchStats();
     fetchQuestions();
+    fetchUsers();
   }, []);
 
   const fetchStats = async () => {
@@ -36,6 +43,26 @@ export default function AdminDashboard() {
       setError('Sorular yüklenirken bir hata oluştu');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const fetchUsers = async () => {
+    setUserLoading(true);
+    setUserError(null);
+    try {
+      const response = await fetch('/api/admin/users');
+      if (!response.ok) throw new Error('Kullanıcılar yüklenemedi');
+      const data = await response.json();
+      const currentUserId = session?.user?.id;
+      setUsers(
+        (data.users || []).map(user =>
+          user.id === currentUserId ? { ...user, isSelf: true } : user
+        )
+      );
+    } catch (error) {
+      setUserError('Kullanıcılar yüklenirken bir hata oluştu');
+    } finally {
+      setUserLoading(false);
     }
   };
 
@@ -84,6 +111,23 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleRoleChange = async (userId, newRole) => {
+    setRoleUpdating(userId);
+    try {
+      const response = await fetch(`/api/admin/users/${userId}/role`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role: newRole }),
+      });
+      if (!response.ok) throw new Error('Rol güncellenemedi');
+      await fetchUsers();
+    } catch (error) {
+      alert('Rol güncellenirken bir hata oluştu');
+    } finally {
+      setRoleUpdating(null);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 py-12">
@@ -108,6 +152,55 @@ export default function AdminDashboard() {
     <div className="min-h-screen bg-gray-50 py-12">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-8">Admin Dashboard</h1>
+
+        {/* Kullanıcı Yönetimi */}
+        <div className="bg-white shadow rounded-lg mb-8">
+          <div className="px-4 py-5 sm:p-6">
+            <h2 className="text-lg font-medium text-gray-900 mb-4">Kullanıcı Yönetimi</h2>
+            {userLoading ? (
+              <div>Yükleniyor...</div>
+            ) : userError ? (
+              <div className="text-red-500">{userError}</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ad Soyad</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">E-posta</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rol</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kayıt Tarihi</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {users.map((user) => (
+                      <tr key={user.id}>
+                        <td className="px-6 py-4 whitespace-nowrap">{user.name}</td>
+                        <td className="px-6 py-4 whitespace-nowrap">{user.email}</td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <select
+                            value={user.role}
+                            disabled={roleUpdating === user.id || user.isSelf}
+                            onChange={e => handleRoleChange(user.id, e.target.value)}
+                            className="text-sm rounded-md border-gray-300"
+                          >
+                            <option value="user">Kullanıcı</option>
+                            <option value="admin">Admin</option>
+                          </select>
+                          {roleUpdating === user.id && <span className="ml-2 text-xs text-gray-400">Güncelleniyor...</span>}
+                          {user.isSelf && <span className="ml-2 text-xs text-gray-400">(Kendiniz)</span>}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {new Date(user.createdAt).toLocaleDateString('tr-TR')}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
 
         {/* İstatistikler */}
         {stats && (
